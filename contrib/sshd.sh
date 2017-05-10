@@ -1,8 +1,10 @@
 #!/bin/bash
 
 SSHDCFG="$PWD/sshd.cfg"
-BINDIR="$GOPATH/bin"
-BINARY=`realpath $BINDIR/gin-repo`
+
+# Directory and shell binary both have to be owned by root,
+# both require file permission 775 or lower.
+BINARY="/gin-repo/gin-shell"
 
 if [ ! -x "$BINARY" ]; then
    echo "$BINARY does not exist (or is not executable)"
@@ -12,7 +14,7 @@ fi
 HOSTKEY="$PWD/ssh_host_rsa_key"
 
 if [ ! -e "$HOSTKEY" ]; then
-    ssh-keygen -t rsa -f "$HOSTKEY" -P ""
+    ssh-keygen -b 4096 -t rsa -f "$HOSTKEY" -P ""
 fi
 
 SSHD=`which sshd`
@@ -24,9 +26,9 @@ cat << EOF > "$SSHDCFG"
 Port $PORT
 AddressFamily inet
 HostKey $HOSTKEY
-UsePrivilegeSeparation no
-AuthorizedKeysCommand /gin-repo keys sshd %f
-AuthorizedKeysCommandUser gicmo
+UsePrivilegeSeparation yes
+AuthorizedKeysCommand $BINARY --keys  %u "%t %k"
+AuthorizedKeysCommandUser $USER
 UsePam no
 PidFile $PWD/sshd.pid
 EOF
@@ -37,6 +39,7 @@ echo "sshd ..... $SSHD"
 echo "pwd ...... $PWD"
 echo "cfg ...... $SSHDCFG"
 echo "host key . $HOSTKEY"
-echo "port ..... $port"
+echo "port ..... $PORT"
+echo "user ..... $USER"
 
 "$SSHD" -De -f "$SSHDCFG"
